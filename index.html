@@ -105,6 +105,30 @@ select{cursor:pointer}
 hr.div{border:none;border-top:1px solid var(--bdr);margin:8px 0}
 @keyframes pu{0%,100%{opacity:1}50%{opacity:0.4}}
 .ld{animation:pu 1.2s ease infinite}
+/* AX과제 */
+.ax-card{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--rl);padding:16px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.06);transition:box-shadow 0.15s}
+.ax-card:hover{box-shadow:0 3px 10px rgba(0,0,0,0.1)}
+.ax-card.st-goal{border-left:4px solid var(--yw)}
+.ax-card.st-progress{border-left:4px solid var(--ac)}
+.ax-card.st-done{border-left:4px solid var(--gn);opacity:0.82}
+.ax-hd{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+.ax-badge{padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0}
+.ax-badge.goal{background:var(--ywl);color:var(--yw);border:1px solid #f9e4a0}
+.ax-badge.progress{background:var(--acl);color:var(--ac);border:1px solid #b8d0f0}
+.ax-badge.done{background:var(--gnl);color:var(--gn);border:1px solid #b8dfc8}
+.ax-title{font-size:14px;font-weight:700;flex:1;line-height:1.4}
+.ax-member{font-size:12px;color:var(--tx2);background:var(--sur2);border:1px solid var(--bdr);border-radius:20px;padding:2px 9px;white-space:nowrap;flex-shrink:0}
+.ax-body{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-size:12px}
+.ax-field{padding:7px 10px;background:var(--sur2);border-radius:var(--r)}
+.ax-field-lbl{font-size:10px;color:var(--tx3);font-weight:600;margin-bottom:2px}
+.ax-field-val{color:var(--tx);line-height:1.5;white-space:pre-wrap}
+.ax-ft{display:flex;justify-content:flex-end;gap:7px;margin-top:10px;padding-top:10px;border-top:1px solid var(--bdr)}
+.ax-st-sel{display:flex;border:1px solid var(--bdr2);border-radius:var(--r);overflow:hidden;flex-shrink:0}
+.ax-st-btn{padding:4px 10px;border:none;background:transparent;cursor:pointer;font-size:11px;font-weight:500;font-family:inherit;color:var(--tx2);border-right:1px solid var(--bdr2)}
+.ax-st-btn:last-child{border-right:none}
+.ax-st-btn.on-goal{background:var(--ywl);color:var(--yw)}
+.ax-st-btn.on-progress{background:var(--acl);color:var(--ac)}
+.ax-st-btn.on-done{background:var(--gnl);color:var(--gn)}
 </style>
 </head>
 <body>
@@ -119,6 +143,7 @@ hr.div{border:none;border-top:1px solid var(--bdr);margin:8px 0}
     <button class="nb on" onclick="go('weekly',this)"><span>📋</span> 주간업무보고</button>
     <button class="nb" onclick="go('feedback',this)"><span>💬</span> 월별피드백</button>
     <button class="nb" onclick="go('monthly',this)"><span>📊</span> 월간업무보고</button>
+    <button class="nb" onclick="go('ax',this)"><span>🚀</span> AX과제 관리</button>
     <hr class="div">
     <button class="nb" onclick="go('settings',this)"><span>⚙️</span> 설정</button>
   </nav>
@@ -343,6 +368,128 @@ hr.div{border:none;border-top:1px solid var(--bdr);margin:8px 0}
   </div>
 </div>
 
+<!-- AX과제 관리 -->
+<div id="pg-ax" class="pg">
+  <div class="ph">
+    <div><div class="pt">🚀 AX과제 관리</div><div class="pd">팀원별 AI 전환 과제 · 목표/일정/예상성과 누적관리</div></div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+      <select id="ax-filter-member" style="width:auto" onchange="renderAxTasks()"><option value="">전체 팀원</option></select>
+      <select id="ax-filter-status" style="width:auto" onchange="renderAxTasks()">
+        <option value="">전체 상태</option>
+        <option value="goal">목표설정</option>
+        <option value="progress">진행중</option>
+        <option value="done">완료</option>
+      </select>
+      <button class="btn btn-p" onclick="openAxModal()">+ 과제 등록</button>
+    </div>
+  </div>
+
+  <!-- 요약 현황 -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+    <div class="card" style="margin:0;padding:14px 16px">
+      <div style="font-size:11px;color:var(--tx3);margin-bottom:4px">⭕ 목표설정</div>
+      <div id="ax-cnt-goal" style="font-size:24px;font-weight:700;color:var(--yw)">0</div>
+    </div>
+    <div class="card" style="margin:0;padding:14px 16px">
+      <div style="font-size:11px;color:var(--tx3);margin-bottom:4px">🔄 진행중</div>
+      <div id="ax-cnt-prog" style="font-size:24px;font-weight:700;color:var(--ac)">0</div>
+    </div>
+    <div class="card" style="margin:0;padding:14px 16px">
+      <div style="font-size:11px;color:var(--tx3);margin-bottom:4px">✅ 완료</div>
+      <div id="ax-cnt-done" style="font-size:24px;font-weight:700;color:var(--gn)">0</div>
+    </div>
+  </div>
+
+  <!-- 과제 목록 -->
+  <div class="card" style="padding:0;overflow:hidden">
+    <div class="twrap">
+      <table class="tbl" id="ax-list" style="min-width:900px">
+        <thead><tr>
+          <th style="width:80px">담당자</th>
+          <th style="min-width:160px">과제명</th>
+          <th style="min-width:150px">목표</th>
+          <th style="width:82px">시작일</th>
+          <th style="width:82px">완료목표일</th>
+          <th style="min-width:150px">예상성과</th>
+          <th style="min-width:130px">진행메모</th>
+          <th style="width:140px">진행상황</th>
+          <th style="min-width:110px">결과물 링크</th>
+          <th style="width:52px"></th>
+        </tr></thead>
+        <tbody id="ax-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="ax-empty" style="display:none;text-align:center;padding:40px;color:var(--tx3);font-size:13px">
+    등록된 AX과제가 없습니다.<br><span style="font-size:12px">위의 "+ 과제 등록" 버튼을 눌러 첫 과제를 추가해보세요.</span>
+  </div>
+
+  <div class="brow" style="margin-top:4px">
+    <button class="btn btn-p" onclick="saveAxToSheets()">구글 시트에 저장</button>
+    <button class="btn" onclick="loadAxFromSheets()">시트에서 불러오기</button>
+    <span id="ax-msg" style="font-size:12px;color:var(--gn)"></span>
+  </div>
+</div>
+
+<!-- AX과제 등록/수정 모달 -->
+<div id="ax-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:999;align-items:center;justify-content:center">
+  <div style="background:var(--sur);border-radius:var(--rl);padding:24px;width:560px;max-width:96vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.18)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:15px;font-weight:700" id="ax-modal-title">AX과제 등록</div>
+      <button class="btn btn-s" onclick="closeAxModal()">✕ 닫기</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div>
+        <div style="font-size:11px;color:var(--tx2);margin-bottom:4px;font-weight:600">담당자 *</div>
+        <select id="ax-m-member" style="width:100%"><option value="">선택</option></select>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--tx2);margin-bottom:4px;font-weight:600">진행 상태</div>
+        <select id="ax-m-status" style="width:100%">
+          <option value="goal">⭕ 목표설정</option>
+          <option value="progress">🔄 진행중</option>
+          <option value="done">✅ 완료</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;color:var(--tx2);margin-bottom:4px;font-weight:600">과제명 *</div>
+      <input type="text" id="ax-m-title" placeholder="예: 고객 응대 AI 챗봇 도입" />
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;color:var(--tx2);margin-bottom:4px;font-weight:600">목표 (달성하고자 하는 것)</div>
+      <textarea id="ax-m-goal" style="min-height:60px" placeholder="예: 고객 문의 응답 시간 50% 단축, 야간 자동 응대 구현"></textarea>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div>
+        <div style="font-size:11px;color:var(--tx2);margin-bottom:4px;font-weight:600">시작일</div>
+        <input type="date" id="ax-m-start" />
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--tx2);margin-bottom:4px;font-weight:600">목표 완료일</div>
+        <input type="date" id="ax-m-end" />
+      </div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;color:var(--tx2);margin-bottom:4px;font-weight:600">예상 성과 / 기대 효과</div>
+      <textarea id="ax-m-outcome" style="min-height:60px" placeholder="예: 월 200건 자동 응대, 인력 0.5명 절감, 고객 만족도 향상"></textarea>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;color:var(--tx2);margin-bottom:4px;font-weight:600">비고 / 진행메모</div>
+      <textarea id="ax-m-note" style="min-height:50px" placeholder="현재 진행 상황, 이슈, 참고사항 등"></textarea>
+    </div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;color:var(--tx2);margin-bottom:6px;font-weight:600">🔗 결과물 링크 <span style="font-weight:400;color:var(--tx3)">(배포 URL, 노션 등 여러 개 가능)</span></div>
+      <div id="ax-links-wrap" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px"></div>
+      <button class="btn btn-s" type="button" onclick="addAxLink()" style="width:100%;border-style:dashed;color:var(--tx2)">+ 링크 추가</button>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="closeAxModal()">취소</button>
+      <button class="btn btn-p" onclick="saveAxTask()">저장</button>
+    </div>
+  </div>
+</div>
+
 </main>
 </div>
 
@@ -367,8 +514,9 @@ var MONTHS = (function(){
 var S = {
   members:[], kpiItems:[], reportItems:[],
   weeklyReports:{}, feedbackReports:{}, kpiChecks:{},
-  kpiComments:{}, gasUrl:'', apiKey:''
+  kpiComments:{}, axTasks:[], gasUrl:'', apiKey:''
 };
+var AX_EDITING_ID = null;
 
 var DEFAULTS = {
   members:['담당자1','담당자2','담당자3'],
@@ -402,6 +550,7 @@ function load(){
   if(!S.feedbackReports) S.feedbackReports={};
   if(!S.kpiChecks) S.kpiChecks={};
   if(!S.kpiComments) S.kpiComments={};
+  if(!S.axTasks) S.axTasks=[];
   // DEFAULT 값 우선 적용
   if(DEFAULT_GAS_URL) S.gasUrl=DEFAULT_GAS_URL;
   if(!S.gasUrl) S.gasUrl='';
@@ -419,6 +568,20 @@ function go(p,btn){
   if(p==='settings') renderSettings();
   if(p==='feedback') renderFbPicker();
   if(p==='weekly') loadKpiComment();
+  if(p==='ax'){
+    renderAxMemberFilter(); renderAxTasks();
+    // AX 탭 열 때마다 시트에서 최신 데이터 자동 로드
+    if(S.gasUrl){
+      fetch(S.gasUrl+'?action=readAx')
+        .then(function(r){return r.json();})
+        .then(function(d){
+          if(d&&Array.isArray(d)&&d.length){
+            S.axTasks=d; save(); renderAxTasks();
+          }
+        })
+        .catch(function(){});
+    }
+  }
 }
 
 function initSelects(){
@@ -461,10 +624,25 @@ function onWeekChange(){
   var member=document.getElementById('w-member').value;
   var period=document.getElementById('w-period').value;
   if(!member||!period) return;
-  var saved=(S.weeklyReports[member]||{})[period];
   var tbody=document.getElementById('w-tbody');tbody.innerHTML='';
-  if(saved&&saved.length){ saved.forEach(function(row){addRow(row);}); }
-  else { addRow(); }
+  var saved=(S.weeklyReports[member]||{})[period];
+  if(saved){
+    // 구형 배열 구조
+    if(Array.isArray(saved)&&saved.length){ saved.forEach(function(row){addRow(row);}); }
+    // 신형 {items,signals,...} 구조 (시트 불러오기 후)
+    else if(saved.items&&saved.items.length){
+      saved.items.forEach(function(itemLabel){
+        addRow({
+          signal: saved.signals&&saved.signals[itemLabel]||'green',
+          label: itemLabel,
+          '변화': saved.changed&&saved.changed[itemLabel]||'',
+          '달성전략': saved.strategy&&saved.strategy[itemLabel]||'',
+          '개선': saved.improve&&saved.improve[itemLabel]||'',
+          '비고': saved.note&&saved.note[itemLabel]||''
+        });
+      });
+    } else { addRow(); }
+  } else { addRow(); }
 }
 
 function buildItemOpts(selId){
@@ -523,6 +701,32 @@ function collectRows(){
     });
   });
   return data;
+}
+
+// 로컬 S.weeklyReports 에서 테이블 그리기 (시트 fetch 없이)
+function loadWeeklyLocal(member, period){
+  if(!member||!period) return;
+  var stored=S.weeklyReports[member]&&S.weeklyReports[member][period];
+  if(!stored) return;
+  var tbody=document.getElementById('w-tbody');
+  tbody.innerHTML='';
+  // 두 가지 저장 구조 모두 처리:
+  // 구형: 배열 [{signal,itemId,label,'변화','달성전략','개선','비고'}, ...]
+  // 신형: {items:[...], signals:{}, changed:{}, strategy:{}, improve:{}, note:{}}
+  if(Array.isArray(stored)){
+    stored.forEach(function(row){ addRow(row); });
+  } else if(stored.items){
+    stored.items.forEach(function(itemLabel){
+      addRow({
+        signal: stored.signals&&stored.signals[itemLabel]||'green',
+        label: itemLabel,
+        '변화': stored.changed&&stored.changed[itemLabel]||'',
+        '달성전략': stored.strategy&&stored.strategy[itemLabel]||'',
+        '개선': stored.improve&&stored.improve[itemLabel]||'',
+        '비고': stored.note&&stored.note[itemLabel]||''
+      });
+    });
+  }
 }
 
 function saveWeekly(){
@@ -1113,26 +1317,83 @@ async function syncFrom(){
     if(r2.ok){
       var kpi=JSON.parse(await r2.text());
       if(kpi&&Object.keys(kpi).length){
-        // id 직접 매칭 + name으로도 매칭 (id가 바뀐 경우 대비)
         var newChecks={};
         S.kpiItems.forEach(function(item){
-          // 1) id로 직접 찾기
-          if(kpi[item.id]){
-            newChecks[item.id]=kpi[item.id];
-          } else {
-            // 2) name으로 찾기
+          if(kpi[item.id]){ newChecks[item.id]=kpi[item.id]; }
+          else {
             var found=Object.values(kpi).find(function(v){return v.name===item.name;});
             if(found) newChecks[item.id]=found;
           }
         });
         if(Object.keys(newChecks).length) S.kpiChecks=newChecks;
-        else S.kpiChecks=kpi; // 매칭 실패 시 그대로 사용
+        else S.kpiChecks=kpi;
       }
     }
-    save();renderMemberSelects();renderKpi();renderSettings();
-    setSyncSt('ok','✓ 불러오기 완료 — 담당자 '+S.members.length+'명 · KPI '+S.kpiItems.length+'개 · 항목 '+S.reportItems.length+'개');
+
+    // ★ 팀장코멘트 전체 월 일괄 로드
+    try{
+      var r3=await fetch(url+'?action=readAllKpiComment');
+      if(r3.ok){
+        var comments=JSON.parse(await r3.text());
+        if(comments&&typeof comments==='object'&&Object.keys(comments).length){
+          S.kpiComments=comments;
+        }
+      }
+    }catch(e2){}
+
+    // ★ 주간업무보고 전체 데이터 로드
+    try{
+      var r4=await fetch(url+'?action=readAllWeekly');
+      if(r4.ok){
+        var weekly=JSON.parse(await r4.text());
+        if(weekly&&typeof weekly==='object'){
+          // GAS: { member: { period: [{item,signal,changed,strategy,improve,note}] } }
+          // → S.weeklyReports[member][period] = {items,signals,changed,strategy,improve,note}
+          Object.keys(weekly).forEach(function(member){
+            if(!S.weeklyReports[member]) S.weeklyReports[member]={};
+            Object.keys(weekly[member]).forEach(function(period){
+              var rows=weekly[member][period];
+              var signals={};var changed={};var strategy={};var improve={};var note={};
+              var items=rows.map(function(r){
+                signals[r.item]=r.signal||'green';
+                changed[r.item]=r.changed||'';
+                strategy[r.item]=r.strategy||'';
+                improve[r.item]=r.improve||'';
+                note[r.item]=r.note||'';
+                return r.item;
+              });
+              S.weeklyReports[member][period]={items:items,signals:signals,changed:changed,strategy:strategy,improve:improve,note:note};
+            });
+          });
+        }
+      }
+    }catch(e3){}
+
+    // ★ AX과제 자동 로드 (시트에서 팀원들이 편집한 내용 반영)
+    try{
+      var r5=await fetch(url+'?action=readAx');
+      if(r5.ok){
+        var axData=JSON.parse(await r5.text());
+        if(axData&&Array.isArray(axData)&&axData.length) S.axTasks=axData;
+      }
+    }catch(e4){}
+
+    save();renderMemberSelects();renderAxMemberFilter();renderKpi();renderSettings();renderAxTasks();
+    var cntC=Object.keys(S.kpiComments||{}).length;
+    var cntW=Object.keys(S.weeklyReports||{}).length;
+    setSyncSt('ok','✓ 불러오기 완료 — 담당자 '+S.members.length+'명 · KPI '+S.kpiItems.length+'개 · 주간보고 '+cntW+'명분 · 코멘트 '+cntC+'개월 · AX '+S.axTasks.length+'건');
     setConnDot(true,'시트 연동됨');
-    loadKpiComment(); // ★ 마스터 로드 완료 후 코멘트 자동 로드
+    loadKpiComment(); // 현재 선택 월 코멘트 화면 갱신
+    // 주간보고 탭이 열려있으면 현재 선택된 팀원/기간 데이터 자동 반영
+    var wMember=document.getElementById('w-member');
+    var wPeriod=document.getElementById('w-period');
+    if(wMember&&wPeriod&&document.getElementById('pg-report')&&document.getElementById('pg-report').classList.contains('on')){
+      loadWeeklyLocal(wMember.value,wPeriod.value);
+    }
+    // AX과제 탭이 열려있으면 갱신
+    if(document.getElementById('pg-ax')&&document.getElementById('pg-ax').classList.contains('on')){
+      renderAxTasks();
+    }
   }catch(e){setSyncSt('err','불러오기 실패: '+e.message);}
 }
 
@@ -1161,7 +1422,7 @@ function renderSettings(){
   var ml=document.getElementById('cfg-members');ml.innerHTML='';
   S.members.forEach(function(m,i){
     var d=document.createElement('div');d.className='erow';
-    d.innerHTML='<input class="ef" value="'+escHtml(m)+'" onblur="S.members['+i+']=this.value.trim();save();renderMemberSelects()"> <button class="btn btn-s btn-d" onclick="S.members.splice('+i+',1);save();renderSettings();renderMemberSelects()">삭제</button>';
+    d.innerHTML='<input class="ef" value="'+escHtml(m)+'" onblur="S.members['+i+']=this.value.trim();save();renderMemberSelects();renderAxMemberFilter()"> <button class="btn btn-s btn-d" onclick="S.members.splice('+i+',1);save();renderSettings();renderMemberSelects();renderAxMemberFilter()">삭제</button>';
     ml.appendChild(d);
   });
   var kl=document.getElementById('cfg-kpis');kl.innerHTML='';
@@ -1178,9 +1439,243 @@ function renderSettings(){
   });
 }
 
-function addMember(){var n=document.getElementById('new-member').value.trim();if(!n)return;S.members.push(n);document.getElementById('new-member').value='';save();renderSettings();renderMemberSelects();}
+function addMember(){var n=document.getElementById('new-member').value.trim();if(!n)return;S.members.push(n);document.getElementById('new-member').value='';save();renderSettings();renderMemberSelects();renderAxMemberFilter();}
 function addKpi(){var n=document.getElementById('new-kpi-n').value.trim(),t=document.getElementById('new-kpi-t').value.trim();if(!n)return;S.kpiItems.push({id:'k'+Date.now(),name:n,target:t});document.getElementById('new-kpi-n').value='';document.getElementById('new-kpi-t').value='';save();renderSettings();renderKpi();}
 function addItem(){var l=document.getElementById('new-item-l').value.trim();if(!l)return;S.reportItems.push({id:'r'+Date.now(),label:l});document.getElementById('new-item-l').value='';save();renderSettings();}
+
+// ── AX과제 관리
+function renderAxMemberFilter(){
+  var sel=document.getElementById('ax-filter-member');
+  if(!sel)return;
+  var cur=sel.value;
+  sel.innerHTML='<option value="">전체 팀원</option>';
+  S.members.forEach(function(m){
+    var o=document.createElement('option');o.value=m;o.text=m;
+    if(m===cur)o.selected=true;sel.appendChild(o);
+  });
+  // 모달 담당자 드롭다운도 업데이트
+  var msel=document.getElementById('ax-m-member');
+  if(msel){
+    var mcur=msel.value;
+    msel.innerHTML='<option value="">선택</option>';
+    S.members.forEach(function(m){
+      var o=document.createElement('option');o.value=m;o.text=m;
+      if(m===mcur)o.selected=true;msel.appendChild(o);
+    });
+  }
+}
+
+function renderAxTasks(){
+  var fMember=document.getElementById('ax-filter-member').value;
+  var fStatus=document.getElementById('ax-filter-status').value;
+  var tasks=S.axTasks.filter(function(t){
+    if(fMember&&t.member!==fMember)return false;
+    if(fStatus&&t.status!==fStatus)return false;
+    return true;
+  });
+  // 정렬: 담당자 > 진행중 > 목표설정 > 완료
+  var order={progress:0,goal:1,done:2};
+  tasks.sort(function(a,b){
+    if(a.member!==b.member) return a.member.localeCompare(b.member,'ko');
+    return (order[a.status]||0)-(order[b.status]||0);
+  });
+
+  // 카운트
+  var all=S.axTasks;
+  document.getElementById('ax-cnt-goal').textContent=all.filter(function(t){return t.status==='goal';}).length;
+  document.getElementById('ax-cnt-prog').textContent=all.filter(function(t){return t.status==='progress';}).length;
+  document.getElementById('ax-cnt-done').textContent=all.filter(function(t){return t.status==='done';}).length;
+
+  var tbody=document.getElementById('ax-tbody');
+  var empty=document.getElementById('ax-empty');
+  tbody.innerHTML='';
+  if(!tasks.length){ empty.style.display='block'; document.querySelector('#ax-list').style.display='none'; return; }
+  empty.style.display='none'; document.querySelector('#ax-list').style.display='';
+
+  // 담당자별 rowspan 계산
+  var memberCount={};
+  tasks.forEach(function(t){ memberCount[t.member]=(memberCount[t.member]||0)+1; });
+  var memberSeen={};
+
+  tasks.forEach(function(t){
+    var tr=document.createElement('tr');
+    // 상태별 행 배경
+    var rowBg=t.status==='done'?'background:#f8fdf9':t.status==='progress'?'background:#f5f8ff':'';
+    tr.style.cssText=rowBg;
+
+    var cells='';
+    // 담당자 (rowspan)
+    if(!memberSeen[t.member]){
+      memberSeen[t.member]=true;
+      var cnt=memberCount[t.member];
+      cells+='<td rowspan="'+cnt+'" style="font-weight:600;font-size:12px;text-align:center;vertical-align:middle;background:var(--sur2);border-right:2px solid var(--bdr2)">'+escHtml(t.member)+'</td>';
+    }
+
+    // 과제명 (왼쪽 상태색 border)
+    var borderCol=t.status==='done'?'var(--gn)':t.status==='progress'?'var(--ac)':'var(--yw)';
+    cells+='<td style="font-weight:600;font-size:12px;border-left:3px solid '+borderCol+';padding-left:8px">'+escHtml(t.title)+'</td>';
+    cells+='<td style="font-size:12px;white-space:pre-wrap">'+escHtml(t.goal||'')+'</td>';
+    cells+='<td style="font-size:11px;color:var(--tx2);white-space:nowrap;text-align:center">'+escHtml(t.start?fmtDate(t.start):'')+'</td>';
+    cells+='<td style="font-size:11px;color:var(--tx2);white-space:nowrap;text-align:center">'+escHtml(t.end?fmtDate(t.end):'')+'</td>';
+    cells+='<td style="font-size:12px;white-space:pre-wrap">'+escHtml(t.outcome||'')+'</td>';
+    cells+='<td style="font-size:12px;white-space:pre-wrap;color:var(--tx2)">'+escHtml(t.note||'')+'</td>';
+
+    // 진행상황 버튼
+    cells+='<td style="padding:4px 6px;white-space:nowrap">'+
+      '<div class="ax-st-sel">'+
+        '<button class="ax-st-btn'+(t.status==='goal'?' on-goal':'')+'" onclick="changeAxStatus(\''+t.id+'\',\'goal\')">목표설정</button>'+
+        '<button class="ax-st-btn'+(t.status==='progress'?' on-progress':'')+'" onclick="changeAxStatus(\''+t.id+'\',\'progress\')">진행중</button>'+
+        '<button class="ax-st-btn'+(t.status==='done'?' on-done':'')+'" onclick="changeAxStatus(\''+t.id+'\',\'done\')">완료</button>'+
+      '</div>'+
+    '</td>';
+
+    // 결과물 링크
+    var linksHtml='';
+    if(t.links&&t.links.length){
+      t.links.forEach(function(lk){
+        linksHtml+='<a href="'+escHtml(lk.url)+'" target="_blank" rel="noopener" style="display:block;font-size:11px;color:var(--ac);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px;margin-bottom:2px" title="'+escHtml(lk.url)+'">🔗 '+escHtml(lk.label)+'</a>';
+      });
+    }
+    cells+='<td style="padding:4px 8px;vertical-align:middle">'+linksHtml+'</td>';
+
+    // 수정/삭제
+    cells+='<td style="padding:4px 6px;white-space:nowrap;text-align:center">'+
+      '<button class="btn btn-s" style="padding:3px 8px;margin-bottom:2px" onclick="editAxTask(\''+t.id+'\')">수정</button>'+
+      '<button class="btn btn-s btn-d" style="padding:3px 8px" onclick="deleteAxTask(\''+t.id+'\')">삭제</button>'+
+    '</td>';
+
+    tr.innerHTML=cells;
+    tbody.appendChild(tr);
+  });
+}
+
+function fmtDate(s){
+  if(!s)return'';
+  var d=new Date(s);
+  return d.getFullYear()+'.'+(d.getMonth()+1)+'.'+(d.getDate());
+}
+
+function changeAxStatus(id,status,btn){
+  var t=S.axTasks.find(function(x){return x.id===id;});
+  if(!t)return;
+  t.status=status; save(); renderAxTasks();
+}
+
+function openAxModal(id){
+  AX_EDITING_ID=id||null;
+  renderAxMemberFilter();
+  var modal=document.getElementById('ax-modal');
+  modal.style.display='flex';
+  document.getElementById('ax-modal-title').textContent=id?'AX과제 수정':'AX과제 등록';
+  var linksWrap=document.getElementById('ax-links-wrap');
+  linksWrap.innerHTML='';
+  if(id){
+    var t=S.axTasks.find(function(x){return x.id===id;});
+    if(t){
+      document.getElementById('ax-m-member').value=t.member||'';
+      document.getElementById('ax-m-status').value=t.status||'goal';
+      document.getElementById('ax-m-title').value=t.title||'';
+      document.getElementById('ax-m-goal').value=t.goal||'';
+      document.getElementById('ax-m-start').value=t.start||'';
+      document.getElementById('ax-m-end').value=t.end||'';
+      document.getElementById('ax-m-outcome').value=t.outcome||'';
+      document.getElementById('ax-m-note').value=t.note||'';
+      if(t.links&&t.links.length){
+        t.links.forEach(function(lk){ addAxLink(lk.label,lk.url); });
+      }
+    }
+  } else {
+    document.getElementById('ax-m-member').value='';
+    document.getElementById('ax-m-status').value='goal';
+    document.getElementById('ax-m-title').value='';
+    document.getElementById('ax-m-goal').value='';
+    document.getElementById('ax-m-start').value='';
+    document.getElementById('ax-m-end').value='';
+    document.getElementById('ax-m-outcome').value='';
+    document.getElementById('ax-m-note').value='';
+  }
+}
+
+function addAxLink(label,url){
+  var wrap=document.getElementById('ax-links-wrap');
+  var row=document.createElement('div');
+  row.className='ax-link-row';
+  row.style.cssText='display:grid;grid-template-columns:1fr 1.6fr auto;gap:6px;align-items:center';
+  row.innerHTML=
+    '<input type="text" placeholder="설명 (예: 배포 사이트)" value="'+escHtml(label||'')+'" class="ax-link-label" style="font-size:12px" />'+
+    '<input type="url" placeholder="https://" value="'+escHtml(url||'')+'" class="ax-link-url" style="font-size:12px" />'+
+    '<button type="button" onclick="this.parentNode.remove()" class="btn btn-s btn-d" style="padding:4px 8px;flex-shrink:0">✕</button>';
+  wrap.appendChild(row);
+}
+
+function editAxTask(id){ openAxModal(id); }
+
+function closeAxModal(){
+  document.getElementById('ax-modal').style.display='none';
+  AX_EDITING_ID=null;
+}
+
+function saveAxTask(){
+  var member=document.getElementById('ax-m-member').value;
+  var title=document.getElementById('ax-m-title').value.trim();
+  if(!member){alert('담당자를 선택해주세요.');return;}
+  if(!title){alert('과제명을 입력해주세요.');return;}
+  // 링크 수집
+  var links=[];
+  document.querySelectorAll('#ax-links-wrap .ax-link-row').forEach(function(row){
+    var lbl=row.querySelector('.ax-link-label').value.trim();
+    var url=row.querySelector('.ax-link-url').value.trim();
+    if(url) links.push({label:lbl||url, url:url});
+  });
+  var data={
+    id: AX_EDITING_ID || ('ax'+Date.now()),
+    member: member,
+    status: document.getElementById('ax-m-status').value,
+    title: title,
+    goal: document.getElementById('ax-m-goal').value.trim(),
+    start: document.getElementById('ax-m-start').value,
+    end: document.getElementById('ax-m-end').value,
+    outcome: document.getElementById('ax-m-outcome').value.trim(),
+    note: document.getElementById('ax-m-note').value.trim(),
+    links: links,
+    updatedAt: new Date().toISOString()
+  };
+  if(AX_EDITING_ID){
+    var idx=S.axTasks.findIndex(function(x){return x.id===AX_EDITING_ID;});
+    if(idx>=0) S.axTasks[idx]=data; else S.axTasks.push(data);
+  } else {
+    S.axTasks.push(data);
+  }
+  save(); closeAxModal(); renderAxTasks();
+  flash('ax-msg','✓ 저장됨');
+}
+
+function deleteAxTask(id){
+  if(!confirm('이 과제를 삭제하시겠습니까?'))return;
+  S.axTasks=S.axTasks.filter(function(x){return x.id!==id;});
+  save(); renderAxTasks();
+}
+
+function saveAxToSheets(){
+  if(!S.gasUrl){flash('ax-msg','⚠ Apps Script URL을 먼저 설정해주세요.');return;}
+  flash('ax-msg','저장 중...');
+  fetch(S.gasUrl,{method:'POST',body:JSON.stringify({action:'saveAx',tasks:S.axTasks})})
+    .then(function(r){return r.json();})
+    .then(function(d){flash('ax-msg','✓ 구글 시트 저장 완료 ('+new Date().toLocaleTimeString()+')');})
+    .catch(function(){flash('ax-msg','⚠ 로컬 저장됨 (시트 동기화 실패)');});
+}
+
+function loadAxFromSheets(){
+  if(!S.gasUrl){flash('ax-msg','⚠ Apps Script URL을 먼저 설정해주세요.');return;}
+  flash('ax-msg','불러오는 중...');
+  fetch(S.gasUrl+'?action=readAx')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d&&Array.isArray(d)){S.axTasks=d;save();renderAxTasks();flash('ax-msg','✓ 불러오기 완료');}
+      else{flash('ax-msg','⚠ 데이터 없음');}
+    })
+    .catch(function(){flash('ax-msg','⚠ 불러오기 실패');});
+}
 
 // ── 유틸
 function flash(id,msg){var el=document.getElementById(id);if(!el)return;el.textContent=msg;setTimeout(function(){el.textContent='';},3000);}
@@ -1192,6 +1687,7 @@ function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt
 load();
 initSelects();       // 먼저 월 드롭다운 생성
 renderMemberSelects();
+renderAxMemberFilter(); // AX과제 담당자 필터 초기화
 renderKpi();
 loadKpiComment();    // 드롭다운 생성 후 호출해야 month 값을 읽을 수 있음
 
