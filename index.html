@@ -568,39 +568,9 @@ function go(p,btn){
   if(p==='settings') renderSettings();
   if(p==='feedback') renderFbPicker();
   if(p==='weekly'){
-    renderKpi(); loadKpiComment();
-    // KPI 탭 열 때마다 시트에서 최신 신호등 + 코멘트 자동 pull
-    if(S.gasUrl){
-      fetch(S.gasUrl+'?action=readKpi')
-        .then(function(r){return r.json();})
-        .then(function(kpiRaw){
-          if(kpiRaw&&typeof kpiRaw==='object'&&!kpiRaw.error&&Object.keys(kpiRaw).length){
-            var newChecks={};
-            S.kpiItems.forEach(function(item){
-              if(kpiRaw[item.id]) newChecks[item.id]=kpiRaw[item.id];
-              else{
-                var found=Object.values(kpiRaw).find(function(v){return v.name===item.name;});
-                if(found) newChecks[item.id]=found;
-              }
-            });
-            if(!Object.keys(newChecks).length){
-              S.kpiItems.forEach(function(item){
-                var found=Object.values(kpiRaw).find(function(v){return v.name===item.name;});
-                if(found) newChecks[item.id]=found;
-              });
-            }
-            S.kpiChecks=Object.keys(newChecks).length?newChecks:kpiRaw;
-            save(); renderKpi();
-          }
-        }).catch(function(){});
-      fetch(S.gasUrl+'?action=readAllKpiComment')
-        .then(function(r){return r.json();})
-        .then(function(d){
-          if(d&&typeof d==='object'&&!d.error&&Object.keys(d).length){
-            S.kpiComments=d; save(); loadKpiComment();
-          }
-        }).catch(function(){});
-    }
+    renderKpi();
+    loadKpiFromSheet();   // 시트에서 직접 신호등 읽기
+    loadKpiComment();     // 시트에서 직접 코멘트 읽기
   }
   if(p==='ax'){
     renderAxMemberFilter(); renderAxTasks();
@@ -809,18 +779,22 @@ async function pushToSheets(){
   }catch(e){alert('저장 실패: '+e.message);}
 }
 
-// ── KPI
-function renderKpi(){
+// ── KPI: 항상 시트에서 직접 읽어서 표시 (localStorage 의존 제거)
+function renderKpi(checksFromSheet){
   var box=document.getElementById('kpi-box');box.innerHTML='';
+  // checksFromSheet 있으면 사용, 없으면 S.kpiChecks 사용
+  var checks=checksFromSheet||S.kpiChecks||{};
   S.kpiItems.forEach(function(kpi){
-    // ID로 먼저 찾고, 없으면 name으로 찾고, 없으면 기본값
-    var chk=S.kpiChecks[kpi.id]
-      || Object.values(S.kpiChecks).find(function(v){return v.name===kpi.name;})
+    // ID → name 순으로 fallback
+    var chk=checks[kpi.id]
+      || Object.values(checks).find(function(v){return v.name===kpi.name;})
       || {signal:'green',status:'progress',updatedAt:''};
-    var updTxt=chk.updatedAt?'최종 업데이트: '+new Date(chk.updatedAt).toLocaleDateString('ko-KR'):'';
+    var updTxt=chk.updatedAt?'최종: '+new Date(chk.updatedAt).toLocaleDateString('ko-KR'):'';
     var div=document.createElement('div');div.className='kpi-row';
+    div.dataset.kpiId=kpi.id;
+    div.dataset.kpiName=kpi.name;
     div.innerHTML=
-      '<select class="sig-sel" style="width:130px;flex-shrink:0" onchange="onKpiSig(\''+kpi.id+'\',this)">'+
+      '<select class="sig-sel" style="width:130px;flex-shrink:0" onchange="onKpiSig(\''+kpi.id+'\',\''+escHtml(kpi.name)+'\',this)">'+
         '<option value="green"'+(chk.signal==='green'?' selected':'')+'>🟢 이슈없음</option>'+
         '<option value="yellow"'+(chk.signal==='yellow'?' selected':'')+'>🟡 경미한 이슈</option>'+
         '<option value="red"'+(chk.signal==='red'?' selected':'')+'>🔴 중대한 이슈</option>'+
@@ -830,40 +804,73 @@ function renderKpi(){
         (updTxt?'<div style="font-size:10px;color:var(--tx3)">'+updTxt+'</div>':'')+
       '</div>'+
       '<div class="stg">'+
-        '<button class="stb'+(chk.status==='done'?' s-done':'')+'" onclick="onKpiSt(\''+kpi.id+'\',\'done\',this)">달성</button>'+
-        '<button class="stb'+(chk.status==='progress'?' s-prog':'')+'" onclick="onKpiSt(\''+kpi.id+'\',\'progress\',this)">진행중</button>'+
-        '<button class="stb'+(chk.status==='stop'?' s-stop':'')+'" onclick="onKpiSt(\''+kpi.id+'\',\'stop\',this)">중단</button>'+
+        '<button class="stb'+(chk.status==='done'?' s-done':'')+'" onclick="onKpiSt(\''+kpi.id+'\',\''+escHtml(kpi.name)+'\',\'done\',this)">달성</button>'+
+        '<button class="stb'+(chk.status==='progress'?' s-prog':'')+'" onclick="onKpiSt(\''+kpi.id+'\',\''+escHtml(kpi.name)+'\',\'progress\',this)">진행중</button>'+
+        '<button class="stb'+(chk.status==='stop'?' s-stop':'')+'" onclick="onKpiSt(\''+kpi.id+'\',\''+escHtml(kpi.name)+'\',\'stop\',this)">중단</button>'+
       '</div>';
     box.appendChild(div);
   });
   if(!document.querySelector('#w-tbody tr')) addRow();
 }
 
-function onKpiSig(id,sel){
-  if(!S.kpiChecks[id]) S.kpiChecks[id]={signal:'green',status:'progress'};
-  S.kpiChecks[id].signal=sel.value;save();
+// 시트에서 KPI 읽어서 바로 화면에 반영
+function loadKpiFromSheet(){
+  if(!S.gasUrl) return;
+  var box=document.getElementById('kpi-box');
+  if(box) box.style.opacity='0.5';
+  fetch(S.gasUrl+'?action=readKpi')
+    .then(function(r){return r.json();})
+    .then(function(raw){
+      if(!raw||raw.error) return;
+      // 받은 raw 그대로 S.kpiChecks에 저장 + name 기반 재매핑
+      var byName={};
+      Object.values(raw).forEach(function(v){ if(v.name) byName[v.name]=v; });
+      // kpiItems ID로 정규화
+      var normalized={};
+      S.kpiItems.forEach(function(item){
+        if(raw[item.id]) normalized[item.id]=raw[item.id];
+        else if(byName[item.name]) normalized[item.id]=byName[item.name];
+      });
+      S.kpiChecks = Object.keys(normalized).length ? normalized : raw;
+      save();
+      if(box) box.style.opacity='1';
+      renderKpi(S.kpiChecks);
+    })
+    .catch(function(){ if(box) box.style.opacity='1'; });
 }
-function onKpiSt(id,val,btn){
-  if(!S.kpiChecks[id]) S.kpiChecks[id]={signal:'green',status:'progress'};
+
+function onKpiSig(id,name,sel){
+  if(!S.kpiChecks[id]) S.kpiChecks[id]={signal:'green',status:'progress',name:name};
+  S.kpiChecks[id].signal=sel.value;
+  S.kpiChecks[id].name=name;
+  save();
+  // 즉시 시트에 저장
+  saveKpiToSheet();
+}
+function onKpiSt(id,name,val,btn){
+  if(!S.kpiChecks[id]) S.kpiChecks[id]={signal:'green',status:'progress',name:name};
   S.kpiChecks[id].status=val;
+  S.kpiChecks[id].name=name;
   btn.closest('.stg').querySelectorAll('.stb').forEach(function(b){b.classList.remove('s-done','s-prog','s-stop');});
-  btn.classList.add({done:'s-done',progress:'s-prog',stop:'s-stop'}[val]);save();
+  btn.classList.add({done:'s-done',progress:'s-prog',stop:'s-stop'}[val]);
+  save();
+  // 즉시 시트에 저장
+  saveKpiToSheet();
+}
+
+function saveKpiToSheet(){
+  if(!S.gasUrl) return;
+  var now=new Date().toISOString();
+  Object.keys(S.kpiChecks).forEach(function(id){S.kpiChecks[id].updatedAt=now;});
+  flash('kpi-save-msg','저장 중...');
+  fetch(S.gasUrl,{method:'POST',body:JSON.stringify({action:'saveKpi',checks:S.kpiChecks,kpiItems:S.kpiItems})})
+    .then(function(r){return r.json();})
+    .then(function(){flash('kpi-save-msg','✓ 저장됨 ('+new Date().toLocaleTimeString()+')');})
+    .catch(function(){flash('kpi-save-msg','⚠ 저장 실패');});
 }
 
 function saveKpiStatus(){
-  save();
-  var now=new Date().toISOString();
-  Object.keys(S.kpiChecks).forEach(function(id){S.kpiChecks[id].updatedAt=now;});
-  flash('kpi-save-msg','✓ 로컬 저장');
-  if(S.gasUrl){
-    fetch(S.gasUrl,{method:'POST',body:JSON.stringify({action:'saveKpi',checks:S.kpiChecks,kpiItems:S.kpiItems})})
-      .then(function(r){return r.json();})
-      .then(function(d){
-        flash('kpi-save-msg','✓ KPI 상태 저장 완료 ('+new Date().toLocaleTimeString()+')');
-        renderKpi();
-      })
-      .catch(function(){flash('kpi-save-msg','⚠ 로컬 저장됨 (시트 동기화 실패)');});
-  }
+  saveKpiToSheet();
 }
 
 // ── KPI 코멘트
@@ -906,20 +913,20 @@ function saveKpiComment(){
 function loadKpiComment(){
   var month=document.getElementById('kpi-comment-month')?document.getElementById('kpi-comment-month').value:'';
   if(!month) return;
-  // 로컬 먼저
-  var local=S.kpiComments[month];
-  if(local) displayKpiComment(month,local.comment,local.author,local.updatedAt);
+  // 로컬 캐시 먼저 보여주고 (빠른 초기 표시)
+  var local=S.kpiComments&&S.kpiComments[month];
+  if(local&&local.comment) displayKpiComment(month,local.comment,local.author,local.updatedAt);
   else displayKpiComment(month,'','','');
-  // 시트에서 최신
+  // 항상 시트에서 최신값으로 덮어씀
   if(S.gasUrl){
     fetch(S.gasUrl+'?action=readKpiComment&month='+encodeURIComponent(month))
       .then(function(r){return r.json();})
       .then(function(d){
-        if(d&&d.comment){
-          S.kpiComments[month]={comment:d.comment,author:d.author,updatedAt:d.updatedAt};
-          save();
-          displayKpiComment(month,d.comment,d.author,d.updatedAt);
-        }
+        if(!d||d.error) return;
+        if(!S.kpiComments) S.kpiComments={};
+        S.kpiComments[month]={comment:d.comment||'',author:d.author||'',updatedAt:d.updatedAt||''};
+        save();
+        displayKpiComment(month,d.comment||'',d.author||'',d.updatedAt||'');
       }).catch(function(){});
   }
 }
