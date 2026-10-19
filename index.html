@@ -856,26 +856,19 @@ function loadKpiFromSheet(){
       var byName={};
       Object.values(raw).forEach(function(v){ if(v.name&&!byName[v.name]) byName[v.name]=v; });
       var result={};
-      var needSave=false;
       S.kpiItems.forEach(function(item){
         if(raw[item.id]){
           result[item.id]=raw[item.id];
         } else if(byName[item.name]){
           result[item.id]=byName[item.name];
         } else {
-          // 시트에 없는 항목 → green 기본값으로 채움
+          // 시트에 없는 항목 → green 기본값 (저장 안 함)
           result[item.id]={signal:'green',name:item.name};
-          needSave=true;
         }
       });
       S.kpiChecks=result;
       save();
       renderKpi(result);
-      // 시트에 없던 항목 자동 저장
-      if(needSave){
-        fetch(S.gasUrl,{method:'POST',body:JSON.stringify({action:'saveKpi',checks:result,kpiItems:S.kpiItems})})
-          .catch(function(){});
-      }
     })
     .catch(function(){ if(box) box.style.opacity='1'; renderKpi(S.kpiChecks||{}); });
 }
