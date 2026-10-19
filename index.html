@@ -870,16 +870,22 @@ function loadKpiFromSheet(){
       if(!raw||raw.error){ renderKpi(S.kpiChecks||{}); return; }
       // name 기반으로 kpiItems ID에 매핑
       // name 기반 매핑 (같은 이름 여러 개면 첫 번째 사용)
+      // 같은 이름 여러 개 처리: 이름→배열로 모아서 순서대로 배정
       var byName={};
-      Object.values(raw).forEach(function(v){ if(v.name&&!byName[v.name]) byName[v.name]=v; });
+      Object.values(raw).forEach(function(v){
+        if(v.name){ if(!byName[v.name]) byName[v.name]=[]; byName[v.name].push(v); }
+      });
+      var usedByName={};
       var result={};
       S.kpiItems.forEach(function(item){
         if(raw[item.id]){
           result[item.id]=raw[item.id];
-        } else if(byName[item.name]){
-          result[item.id]=byName[item.name];
+        } else if(byName[item.name] && byName[item.name].length){
+          // 같은 이름 여러 개면 순서대로 하나씩 배정
+          var idx=usedByName[item.name]||0;
+          result[item.id]=byName[item.name][idx]||byName[item.name][0];
+          usedByName[item.name]=idx+1;
         } else {
-          // 시트에 없는 항목 → green 기본값 (저장 안 함)
           result[item.id]={signal:'green',name:item.name};
         }
       });
