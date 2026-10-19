@@ -175,11 +175,12 @@ hr.div{border:none;border-top:1px solid var(--bdr);margin:8px 0}
   <div class="card">
     <div class="ct">📌 KPI 달성 현황
       <span id="kpi-updated" style="font-size:11px;font-weight:400;color:var(--tx3)"></span>
+      <button onclick="diagKpi()" style="margin-left:12px;font-size:11px;padding:2px 8px;background:#eee;border:1px solid #ccc;border-radius:4px;cursor:pointer">🔍 진단</button>
     </div>
     <div style="font-size:11px;color:var(--tx2);margin-bottom:10px">
       신호등: <span style="color:#22c55e;font-weight:700">●</span> 이슈없음 &nbsp;<span style="color:#eab308;font-weight:700">●</span> 경미 &nbsp;<span style="color:#ef4444;font-weight:700">●</span> 중대
-      &nbsp;|&nbsp; <span style="color:var(--gn);font-weight:500">달성</span> · <span style="color:var(--ac);font-weight:500">진행중</span> · <span style="color:var(--rd);font-weight:500">중단</span>
     </div>
+    <div id="kpi-diag" style="display:none;background:#f8f8f8;border:1px solid #ddd;border-radius:6px;padding:10px;margin-bottom:10px;font-size:12px;white-space:pre-wrap;word-break:break-all"></div>
     <div id="kpi-box"></div>
     <!-- 팀장 코멘트 -->
     <div class="kpi-comment-box" id="kpi-comment-box">
@@ -803,6 +804,20 @@ function renderKpi(checks){
     box.appendChild(div);
   });
   if(!document.querySelector('#w-tbody tr')) addRow();
+}
+
+// 진단 함수 - 시트 응답 그대로 화면에 표시
+function diagKpi(){
+  var diag=document.getElementById('kpi-diag');
+  diag.style.display='block';
+  diag.textContent='시트에서 읽는 중...\nURL: '+(S.gasUrl||'없음');
+  if(!S.gasUrl){ diag.textContent='❌ GAS URL 없음. 설정 탭에서 URL 확인하세요.'; return; }
+  fetch(S.gasUrl+'?action=readKpi')
+    .then(function(r){ return r.text(); })
+    .then(function(txt){
+      diag.textContent='✅ 시트 응답:\n'+txt+'\n\n현재 S.kpiChecks:\n'+JSON.stringify(S.kpiChecks,null,2)+'\n\nS.kpiItems:\n'+S.kpiItems.map(function(k){return k.id+' → '+k.name;}).join('\n');
+    })
+    .catch(function(e){ diag.textContent='❌ 오류: '+e.message; });
 }
 
 // 탭 열 때마다 시트에서 직접 읽어서 신호등 표시
