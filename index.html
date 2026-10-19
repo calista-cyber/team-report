@@ -793,33 +793,47 @@ function renderKpi(checks){
       sig=byName[kpi.name];
     }
 
-    var dot=sig==='red'?'🔴':sig==='yellow'?'🟠':'🟢';
-    // 드롭다운 값: green→이슈없음, yellow→경미, red→중대
-    var selVal=sig==='red'?'red':sig==='yellow'?'yellow':'green';
+    var sigColor=sig==='red'?'#ef4444':sig==='yellow'?'#f97316':'#22c55e';
 
     var div=document.createElement('div');
     div.className='kpi-row';
-    div.innerHTML=
-      '<span class="kpi-dot" style="font-size:20px;flex-shrink:0;margin-right:6px">'+dot+'</span>'+
-      '<select class="sig-sel" style="flex-shrink:0;width:90px">'+
-        '<option value="green"'  +(selVal==='green'  ?' selected':'')+'>이슈없음</option>'+
-        '<option value="yellow"' +(selVal==='yellow' ?' selected':'')+'>경미</option>'+
-        '<option value="red"'    +(selVal==='red'    ?' selected':'')+'>중대</option>'+
-      '</select>'+
-      '<div style="flex:1;min-width:0">'+
-        '<div style="font-size:13px;font-weight:500">'+escHtml(kpi.name)+'</div>'+
-        '<div style="font-size:11px;color:var(--tx3)">'+escHtml(kpi.target)+'</div>'+
-      '</div>';
 
-    var sel=div.querySelector('select');
-    sel.onchange=(function(id,name,selEl,divEl){
+    // 왼쪽: 신호등 동그라미
+    var dotEl=document.createElement('div');
+    dotEl.style.cssText='width:14px;height:14px;border-radius:50%;background:'+sigColor+';flex-shrink:0;margin-top:2px;';
+    dotEl.setAttribute('data-kpi-dot','1');
+
+    // 드롭다운
+    var sel=document.createElement('select');
+    sel.className='sig-sel';
+    sel.style.cssText='flex-shrink:0;width:110px;font-size:12px;';
+    var opts=[['green','이슈없음'],['yellow','경미한 이슈'],['red','중대한 이슈']];
+    opts.forEach(function(o){
+      var op=document.createElement('option');
+      op.value=o[0];
+      op.textContent=o[1];
+      if(o[0]===sig) op.selected=true;  // JS로 직접 selected 설정
+      sel.appendChild(op);
+    });
+
+    // 오른쪽: KPI명 + 상세
+    var info=document.createElement('div');
+    info.style.flex='1';
+    info.innerHTML='<div style="font-size:13px;font-weight:500">'+escHtml(kpi.name)+'</div>'
+      +'<div style="font-size:11px;color:var(--tx3)">'+escHtml(kpi.target)+'</div>';
+
+    sel.onchange=(function(id,name,selEl,dotElRef){
       return function(){
         var v=selEl.value;
-        divEl.querySelector('.kpi-dot').textContent=v==='red'?'🔴':v==='yellow'?'🟠':'🟢';
+        var col=v==='red'?'#ef4444':v==='yellow'?'#f97316':'#22c55e';
+        dotElRef.style.background=col;
         onKpiSig(id,name,{value:v});
       };
-    })(kpi.id,kpi.name,sel,div);
+    })(kpi.id,kpi.name,sel,dotEl);
 
+    div.appendChild(dotEl);
+    div.appendChild(sel);
+    div.appendChild(info);
     box.appendChild(div);
   });
   if(!document.querySelector('#w-tbody tr')) addRow();
