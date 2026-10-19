@@ -199,7 +199,6 @@ hr.div{border:none;border-top:1px solid var(--bdr);margin:8px 0}
       <div class="kpi-updated" id="kpi-comment-updated"></div>
     </div>
     <div class="brow" style="margin-top:10px">
-      <button class="btn btn-s btn-p" onclick="saveKpiStatus()">KPI 상태 저장</button>
       <span id="kpi-save-msg" style="font-size:12px;color:var(--gn)"></span>
     </div>
   </div>
@@ -779,99 +778,75 @@ async function pushToSheets(){
   }catch(e){alert('저장 실패: '+e.message);}
 }
 
-// ── KPI: 항상 시트에서 직접 읽어서 표시 (localStorage 의존 제거)
-function renderKpi(checksFromSheet){
-  var box=document.getElementById('kpi-box');box.innerHTML='';
-  // checksFromSheet 있으면 사용, 없으면 S.kpiChecks 사용
-  var checks=checksFromSheet||S.kpiChecks||{};
+// ── KPI: 신호등만 표시, 시트에서 직접 읽기
+function renderKpi(checks){
+  var box=document.getElementById('kpi-box');
+  if(!box) return;
+  box.innerHTML='';
+  var data=checks||{};
   S.kpiItems.forEach(function(kpi){
-    // ID → name 순으로 fallback
-    var chk=checks[kpi.id]
-      || Object.values(checks).find(function(v){return v.name===kpi.name;})
-      || {signal:'green',status:'progress',updatedAt:''};
-    var updTxt=chk.updatedAt?'최종: '+new Date(chk.updatedAt).toLocaleDateString('ko-KR'):'';
-    var div=document.createElement('div');div.className='kpi-row';
-    div.dataset.kpiId=kpi.id;
-    div.dataset.kpiName=kpi.name;
+    var chk=data[kpi.id]
+      || Object.values(data).find(function(v){return v.name===kpi.name;})
+      || {signal:'green'};
+    var div=document.createElement('div');
+    div.className='kpi-row';
     div.innerHTML=
       '<select class="sig-sel" style="width:130px;flex-shrink:0" onchange="onKpiSig(\''+kpi.id+'\',\''+escHtml(kpi.name)+'\',this)">'+
         '<option value="green"'+(chk.signal==='green'?' selected':'')+'>🟢 이슈없음</option>'+
         '<option value="yellow"'+(chk.signal==='yellow'?' selected':'')+'>🟡 경미한 이슈</option>'+
         '<option value="red"'+(chk.signal==='red'?' selected':'')+'>🔴 중대한 이슈</option>'+
       '</select>'+
-      '<div style="flex:1"><div style="font-size:13px;font-weight:500">'+escHtml(kpi.name)+'</div>'+
+      '<div style="flex:1">'+
+        '<div style="font-size:13px;font-weight:500">'+escHtml(kpi.name)+'</div>'+
         '<div style="font-size:11px;color:var(--tx3)">'+escHtml(kpi.target)+'</div>'+
-        (updTxt?'<div style="font-size:10px;color:var(--tx3)">'+updTxt+'</div>':'')+
-      '</div>'+
-      '<div class="stg">'+
-        '<button class="stb'+(chk.status==='done'?' s-done':'')+'" onclick="onKpiSt(\''+kpi.id+'\',\''+escHtml(kpi.name)+'\',\'done\',this)">달성</button>'+
-        '<button class="stb'+(chk.status==='progress'?' s-prog':'')+'" onclick="onKpiSt(\''+kpi.id+'\',\''+escHtml(kpi.name)+'\',\'progress\',this)">진행중</button>'+
-        '<button class="stb'+(chk.status==='stop'?' s-stop':'')+'" onclick="onKpiSt(\''+kpi.id+'\',\''+escHtml(kpi.name)+'\',\'stop\',this)">중단</button>'+
       '</div>';
     box.appendChild(div);
   });
   if(!document.querySelector('#w-tbody tr')) addRow();
 }
 
-// 시트에서 KPI 읽어서 바로 화면에 반영
+// 탭 열 때마다 시트에서 직접 읽어서 신호등 표시
 function loadKpiFromSheet(){
-  if(!S.gasUrl) return;
+  if(!S.gasUrl){ renderKpi({}); return; }
   var box=document.getElementById('kpi-box');
-  if(box) box.style.opacity='0.5';
+  if(box) box.style.opacity='0.6';
   fetch(S.gasUrl+'?action=readKpi')
     .then(function(r){return r.json();})
     .then(function(raw){
-      if(!raw||raw.error) return;
-      // 받은 raw 그대로 S.kpiChecks에 저장 + name 기반 재매핑
+      if(box) box.style.opacity='1';
+      if(!raw||raw.error){ renderKpi({}); return; }
+      // name 기반으로 kpiItems ID에 매핑
       var byName={};
       Object.values(raw).forEach(function(v){ if(v.name) byName[v.name]=v; });
-      // kpiItems ID로 정규화
-      var normalized={};
+      var result={};
       S.kpiItems.forEach(function(item){
-        if(raw[item.id]) normalized[item.id]=raw[item.id];
-        else if(byName[item.name]) normalized[item.id]=byName[item.name];
+        result[item.id] = raw[item.id] || byName[item.name] || {signal:'green'};
       });
-      S.kpiChecks = Object.keys(normalized).length ? normalized : raw;
+      S.kpiChecks=result;
       save();
-      if(box) box.style.opacity='1';
-      renderKpi(S.kpiChecks);
+      renderKpi(result);
     })
-    .catch(function(){ if(box) box.style.opacity='1'; });
+    .catch(function(){ if(box) box.style.opacity='1'; renderKpi(S.kpiChecks||{}); });
 }
 
+// 신호등 변경 즉시 시트 저장
 function onKpiSig(id,name,sel){
-  if(!S.kpiChecks[id]) S.kpiChecks[id]={signal:'green',status:'progress',name:name};
-  S.kpiChecks[id].signal=sel.value;
+  var sig=sel.value;
+  if(!S.kpiChecks) S.kpiChecks={};
+  if(!S.kpiChecks[id]) S.kpiChecks[id]={signal:'green',name:name};
+  S.kpiChecks[id].signal=sig;
   S.kpiChecks[id].name=name;
   save();
-  // 즉시 시트에 저장
-  saveKpiToSheet();
-}
-function onKpiSt(id,name,val,btn){
-  if(!S.kpiChecks[id]) S.kpiChecks[id]={signal:'green',status:'progress',name:name};
-  S.kpiChecks[id].status=val;
-  S.kpiChecks[id].name=name;
-  btn.closest('.stg').querySelectorAll('.stb').forEach(function(b){b.classList.remove('s-done','s-prog','s-stop');});
-  btn.classList.add({done:'s-done',progress:'s-prog',stop:'s-stop'}[val]);
-  save();
-  // 즉시 시트에 저장
-  saveKpiToSheet();
-}
-
-function saveKpiToSheet(){
-  if(!S.gasUrl) return;
-  var now=new Date().toISOString();
-  Object.keys(S.kpiChecks).forEach(function(id){S.kpiChecks[id].updatedAt=now;});
+  if(!S.gasUrl){ flash('kpi-save-msg','✓ 로컬 저장'); return; }
   flash('kpi-save-msg','저장 중...');
   fetch(S.gasUrl,{method:'POST',body:JSON.stringify({action:'saveKpi',checks:S.kpiChecks,kpiItems:S.kpiItems})})
     .then(function(r){return r.json();})
-    .then(function(){flash('kpi-save-msg','✓ 저장됨 ('+new Date().toLocaleTimeString()+')');})
-    .catch(function(){flash('kpi-save-msg','⚠ 저장 실패');});
+    .then(function(){ flash('kpi-save-msg','✓ 저장됨'); })
+    .catch(function(){ flash('kpi-save-msg','⚠ 저장 실패'); });
 }
 
-function saveKpiStatus(){
-  saveKpiToSheet();
-}
+function saveKpiStatus(){ /* 버튼 호환용 - 아무 동작 없음 */ }
+function saveKpiToSheet(){ /* 버튼 호환용 */ }
 
 // ── KPI 코멘트
 function toggleKpiCommentEdit(){
