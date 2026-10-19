@@ -583,6 +583,12 @@ function go(p,btn){
                 if(found) newChecks[item.id]=found;
               }
             });
+            if(!Object.keys(newChecks).length){
+              S.kpiItems.forEach(function(item){
+                var found=Object.values(kpiRaw).find(function(v){return v.name===item.name;});
+                if(found) newChecks[item.id]=found;
+              });
+            }
             S.kpiChecks=Object.keys(newChecks).length?newChecks:kpiRaw;
             save(); renderKpi();
           }
@@ -807,7 +813,10 @@ async function pushToSheets(){
 function renderKpi(){
   var box=document.getElementById('kpi-box');box.innerHTML='';
   S.kpiItems.forEach(function(kpi){
-    var chk=S.kpiChecks[kpi.id]||{signal:'green',status:'progress',updatedAt:''};
+    // ID로 먼저 찾고, 없으면 name으로 찾고, 없으면 기본값
+    var chk=S.kpiChecks[kpi.id]
+      || Object.values(S.kpiChecks).find(function(v){return v.name===kpi.name;})
+      || {signal:'green',status:'progress',updatedAt:''};
     var updTxt=chk.updatedAt?'최종 업데이트: '+new Date(chk.updatedAt).toLocaleDateString('ko-KR'):'';
     var div=document.createElement('div');div.className='kpi-row';
     div.innerHTML=
@@ -1354,7 +1363,14 @@ async function syncFrom(){
               if(found) newChecks[item.id]=found;
             }
           });
-          // ID 매칭 실패해도 원본 그대로 저장
+          // ID 매칭 실패 시 name으로 재시도
+          if(!Object.keys(newChecks).length){
+            S.kpiItems.forEach(function(item){
+              var found=Object.values(kpiRaw).find(function(v){return v.name===item.name;});
+              if(found) newChecks[item.id]=found;
+            });
+          }
+          // 그래도 없으면 raw 그대로 (renderKpi에서 name으로 fallback 처리)
           S.kpiChecks=Object.keys(newChecks).length ? newChecks : kpiRaw;
         }
       }
