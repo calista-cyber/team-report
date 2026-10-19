@@ -784,22 +784,41 @@ function renderKpi(checks){
   if(!box) return;
   box.innerHTML='';
   var data=checks||{};
+  // 이름→signal 빠른 조회 맵 (id 매칭 실패 시 이름으로 fallback)
+  var byName={};
+  Object.values(data).forEach(function(v){ if(v&&v.name) byName[v.name]=v.signal||'green'; });
+
   S.kpiItems.forEach(function(kpi){
-    var chk=data[kpi.id]
-      || Object.values(data).find(function(v){return v.name===kpi.name;})
-      || {signal:'green'};
+    // 1) id로 직접 조회
+    var sig='green';
+    if(data[kpi.id] && data[kpi.id].signal){
+      sig=data[kpi.id].signal;
+    // 2) id 매칭 실패 시 이름으로 조회
+    } else if(byName[kpi.name]){
+      sig=byName[kpi.name];
+    }
+
     var div=document.createElement('div');
     div.className='kpi-row';
-    div.innerHTML=
-      '<select class="sig-sel" style="width:130px;flex-shrink:0" onchange="onKpiSig(\''+kpi.id+'\',\''+escHtml(kpi.name)+'\',this)">'+
-        '<option value="green"'+(chk.signal==='green'?' selected':'')+'>🟢 이슈없음</option>'+
-        '<option value="yellow"'+(chk.signal==='yellow'?' selected':'')+'>🟡 경미한 이슈</option>'+
-        '<option value="red"'+(chk.signal==='red'?' selected':'')+'>🔴 중대한 이슈</option>'+
-      '</select>'+
-      '<div style="flex:1">'+
-        '<div style="font-size:13px;font-weight:500">'+escHtml(kpi.name)+'</div>'+
-        '<div style="font-size:11px;color:var(--tx3)">'+escHtml(kpi.target)+'</div>'+
-      '</div>';
+    // select를 innerHTML로 만들지 않고 createElement로 만들어 value를 직접 설정
+    var sel=document.createElement('select');
+    sel.className='sig-sel';
+    sel.style.cssText='width:130px;flex-shrink:0';
+    sel.innerHTML=
+      '<option value="green">🟢 이슈없음</option>'+
+      '<option value="yellow">🟡 경미한 이슈</option>'+
+      '<option value="red">🔴 중대한 이슈</option>';
+    sel.value=sig; // innerHTML selected 속성 없이 직접 value 설정
+    sel.onchange=(function(id,name){return function(){onKpiSig(id,name,sel);};})(kpi.id,kpi.name);
+
+    var info=document.createElement('div');
+    info.style.flex='1';
+    info.innerHTML=
+      '<div style="font-size:13px;font-weight:500">'+escHtml(kpi.name)+'</div>'+
+      '<div style="font-size:11px;color:var(--tx3)">'+escHtml(kpi.target)+'</div>';
+
+    div.appendChild(sel);
+    div.appendChild(info);
     box.appendChild(div);
   });
   if(!document.querySelector('#w-tbody tr')) addRow();
