@@ -867,30 +867,24 @@ function loadKpiFromSheet(){
     .then(function(r){return r.json();})
     .then(function(raw){
       if(box) box.style.opacity='1';
-      if(!raw||raw.error){ renderKpi(S.kpiChecks||{}); return; }
-      // name 기반으로 kpiItems ID에 매핑
-      // name 기반 매핑 (같은 이름 여러 개면 첫 번째 사용)
-      // 같은 이름 여러 개 처리: 이름→배열로 모아서 순서대로 배정
-      var byName={};
-      Object.values(raw).forEach(function(v){
-        if(v.name){ if(!byName[v.name]) byName[v.name]=[]; byName[v.name].push(v); }
-      });
-      var usedByName={};
+      // GAS가 배열로 반환: [{order,signal,name,target,...}, ...]
+      var arr=Array.isArray(raw)?raw:[];
+      if(!arr.length){ renderKpi(S.kpiChecks||{}); return; }
+
+      // order 기준 정렬 (저장 순서 보존)
+      arr.sort(function(a,b){ return (a.order||0)-(b.order||0); });
+
+      // kpiItems 순서에 맞춰 1:1 매핑 (순서가 곧 매핑 키)
       var result={};
-      S.kpiItems.forEach(function(item){
-        if(raw[item.id]){
-          result[item.id]=raw[item.id];
-        } else if(byName[item.name] && byName[item.name].length){
-          // 같은 이름 여러 개면 순서대로 하나씩 배정
-          var idx=usedByName[item.name]||0;
-          result[item.id]=byName[item.name][idx]||byName[item.name][0];
-          usedByName[item.name]=idx+1;
-        } else {
-          result[item.id]={signal:'green',name:item.name};
-        }
+      S.kpiItems.forEach(function(item,i){
+        var row=arr[i];
+        result[item.id]={
+          signal: row?(row.signal||'green'):'green',
+          name:   item.name,
+          target: item.target||''
+        };
       });
       S.kpiChecks=result;
-      save();
       renderKpi(result);
     })
     .catch(function(){ if(box) box.style.opacity='1'; renderKpi(S.kpiChecks||{}); });
