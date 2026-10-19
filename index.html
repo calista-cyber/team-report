@@ -793,7 +793,7 @@ function renderKpi(checks){
       sig=byName[kpi.name];
     }
 
-    var sigColor=sig==='red'?'#ef4444':sig==='yellow'?'#f97316':'#22c55e';
+    var sigColor=sig==='red'?'#ef4444':sig==='yellow'?'#eab308':'#22c55e';
 
     var div=document.createElement('div');
     div.className='kpi-row';
@@ -825,7 +825,7 @@ function renderKpi(checks){
     sel.onchange=(function(id,name,selEl,dotElRef){
       return function(){
         var v=selEl.value;
-        var col=v==='red'?'#ef4444':v==='yellow'?'#f97316':'#22c55e';
+        var col=v==='red'?'#ef4444':v==='yellow'?'#eab308':'#22c55e';
         dotElRef.style.background=col;
         onKpiSig(id,name,{value:v});
       };
