@@ -567,7 +567,35 @@ function go(p,btn){
   if(btn) btn.classList.add('on');
   if(p==='settings') renderSettings();
   if(p==='feedback') renderFbPicker();
-  if(p==='weekly') loadKpiComment();
+  if(p==='weekly'){
+    renderKpi(); loadKpiComment();
+    // KPI 탭 열 때마다 시트에서 최신 신호등 + 코멘트 자동 pull
+    if(S.gasUrl){
+      fetch(S.gasUrl+'?action=readKpi')
+        .then(function(r){return r.json();})
+        .then(function(kpiRaw){
+          if(kpiRaw&&typeof kpiRaw==='object'&&!kpiRaw.error&&Object.keys(kpiRaw).length){
+            var newChecks={};
+            S.kpiItems.forEach(function(item){
+              if(kpiRaw[item.id]) newChecks[item.id]=kpiRaw[item.id];
+              else{
+                var found=Object.values(kpiRaw).find(function(v){return v.name===item.name;});
+                if(found) newChecks[item.id]=found;
+              }
+            });
+            S.kpiChecks=Object.keys(newChecks).length?newChecks:kpiRaw;
+            save(); renderKpi();
+          }
+        }).catch(function(){});
+      fetch(S.gasUrl+'?action=readAllKpiComment')
+        .then(function(r){return r.json();})
+        .then(function(d){
+          if(d&&typeof d==='object'&&!d.error&&Object.keys(d).length){
+            S.kpiComments=d; save(); loadKpiComment();
+          }
+        }).catch(function(){});
+    }
+  }
   if(p==='ax'){
     renderAxMemberFilter(); renderAxTasks();
     // AX 탭 열 때마다 시트에서 최신 데이터 자동 로드
@@ -1313,22 +1341,24 @@ async function syncFrom(){
     if(data.kpiItems&&data.kpiItems.length) S.kpiItems=data.kpiItems;
     if(data.reportItems&&data.reportItems.length) S.reportItems=data.reportItems;
     // KPI 체크 상태
-    var r2=await fetch(url+'?action=readKpi');
-    if(r2.ok){
-      var kpi=JSON.parse(await r2.text());
-      if(kpi&&Object.keys(kpi).length){
-        var newChecks={};
-        S.kpiItems.forEach(function(item){
-          if(kpi[item.id]){ newChecks[item.id]=kpi[item.id]; }
-          else {
-            var found=Object.values(kpi).find(function(v){return v.name===item.name;});
-            if(found) newChecks[item.id]=found;
-          }
-        });
-        if(Object.keys(newChecks).length) S.kpiChecks=newChecks;
-        else S.kpiChecks=kpi;
+    try{
+      var r2=await fetch(url+'?action=readKpi');
+      if(r2.ok){
+        var kpiRaw=JSON.parse(await r2.text());
+        if(kpiRaw&&typeof kpiRaw==='object'&&!kpiRaw.error&&Object.keys(kpiRaw).length){
+          var newChecks={};
+          S.kpiItems.forEach(function(item){
+            if(kpiRaw[item.id]){ newChecks[item.id]=kpiRaw[item.id]; }
+            else {
+              var found=Object.values(kpiRaw).find(function(v){return v.name===item.name;});
+              if(found) newChecks[item.id]=found;
+            }
+          });
+          // ID 매칭 실패해도 원본 그대로 저장
+          S.kpiChecks=Object.keys(newChecks).length ? newChecks : kpiRaw;
+        }
       }
-    }
+    }catch(eKpi){console.warn('readKpi failed:',eKpi);}
 
     // ★ 팀장코멘트 전체 월 일괄 로드
     try{
