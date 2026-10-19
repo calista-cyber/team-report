@@ -175,12 +175,10 @@ hr.div{border:none;border-top:1px solid var(--bdr);margin:8px 0}
   <div class="card">
     <div class="ct">📌 KPI 달성 현황
       <span id="kpi-updated" style="font-size:11px;font-weight:400;color:var(--tx3)"></span>
-      <button onclick="diagKpi()" style="margin-left:12px;font-size:11px;padding:2px 8px;background:#eee;border:1px solid #ccc;border-radius:4px;cursor:pointer">🔍 진단</button>
     </div>
     <div style="font-size:11px;color:var(--tx2);margin-bottom:10px">
       신호등: <span style="color:#22c55e;font-weight:700">●</span> 이슈없음 &nbsp;<span style="color:#eab308;font-weight:700">●</span> 경미 &nbsp;<span style="color:#ef4444;font-weight:700">●</span> 중대
     </div>
-    <div id="kpi-diag" style="display:none;background:#f8f8f8;border:1px solid #ddd;border-radius:6px;padding:10px;margin-bottom:10px;font-size:12px;white-space:pre-wrap;word-break:break-all"></div>
     <div id="kpi-box"></div>
     <!-- 팀장 코멘트 -->
     <div class="kpi-comment-box" id="kpi-comment-box">
@@ -808,7 +806,6 @@ function renderKpi(checks){
       '<option value="green">🟢 이슈없음</option>'+
       '<option value="yellow">🟡 경미한 이슈</option>'+
       '<option value="red">🔴 중대한 이슈</option>';
-    sel.value=sig; // innerHTML selected 속성 없이 직접 value 설정
     sel.onchange=(function(id,name){return function(){onKpiSig(id,name,sel);};})(kpi.id,kpi.name);
 
     var info=document.createElement('div');
@@ -820,6 +817,7 @@ function renderKpi(checks){
     div.appendChild(sel);
     div.appendChild(info);
     box.appendChild(div);
+    sel.value=sig; // DOM에 추가된 후 value 설정 (모바일 크롬 호환)
   });
   if(!document.querySelector('#w-tbody tr')) addRow();
 }
@@ -845,14 +843,14 @@ function diagKpi(){
 
 // 탭 열 때마다 시트에서 직접 읽어서 신호등 표시
 function loadKpiFromSheet(){
-  if(!S.gasUrl){ renderKpi({}); return; }
+  if(!S.gasUrl){ renderKpi(S.kpiChecks||{}); return; }
   var box=document.getElementById('kpi-box');
   if(box) box.style.opacity='0.6';
   fetch(S.gasUrl+'?action=readKpi')
     .then(function(r){return r.json();})
     .then(function(raw){
       if(box) box.style.opacity='1';
-      if(!raw||raw.error){ renderKpi({}); return; }
+      if(!raw||raw.error){ renderKpi(S.kpiChecks||{}); return; }
       // name 기반으로 kpiItems ID에 매핑
       // name 기반 매핑 (같은 이름 여러 개면 첫 번째 사용)
       var byName={};
